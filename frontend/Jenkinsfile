@@ -19,24 +19,26 @@ pipeline {
             steps {
                 dir('frontend') {
                 sh 'REACT_APP_API_URL=$REACT_APP_API_URL npm install'
+                }
             }
         }
-
         stage('npm run build'){
             steps {
                 dir('frontend') {
                 sh 'npm run build'
+                }
             }
         }
-
         stage ('move build satic files to s3 bucket'){
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
                 dir('frontend') {
                 sh '/usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete'
-                }
+                    }
                 
+                }
             }
+
         }
         stage('invalidate cloudfront cache'){
             steps{
