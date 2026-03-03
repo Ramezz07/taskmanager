@@ -5,6 +5,7 @@ pipeline {
         AWS_REGION = 'us-east-1'
         S3_BUCKET = 'jvlcart'
         CLOUDFRONT_DISTRIBUTION_ID = 'E2KYFYDLVUJO6N'
+        REACT_APP_API_URL = 'http://54.198.204.21:5000/'
     }
 
     stages {
@@ -16,7 +17,7 @@ pipeline {
 
         stage('install npm dependencies') {
             steps {
-                sh 'npm install'
+                sh 'REACT_APP_API_URL=$REACT_APP_API_URL npm install'
             }
         }
 
