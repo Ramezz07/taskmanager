@@ -1,0 +1,118 @@
+// Jenkinsfile.backend
+// Pipeline: WSL Ubuntu → GitHub → Jenkins → EC2 → Docker
+// Trigger: GitHub webhook on push to main (changes in backend/)
+
+pipeline {
+  agent any
+
+  environment {
+    EC2_USER       = 'ubuntu'                   // ← EC2 SSH username
+    EC2_HOST       = 'YOUR_EC2_ELASTIC_IP'      // ← EC2 Elastic IP
+    APP_DIR        = '/home/ubuntu/app'          // ← App directory on EC2
+    IMAGE_NAME     = 'taskmanager-backend'       // Docker image name
+    CONTAINER_NAME = 'taskmanager-api'           // Docker container name
+    APP_PORT       = '5000'                      // Backend port
+  }
+
+  stages {
+
+    stage('Checkout') {
+      steps {
+        checkout scm
+        echo "Branch: ${env.GIT_BRANCH} | Commit: ${env.GIT_COMMIT[0..7]}"
+      }
+    }
+
+    stage('Verify Backend Files') {
+      steps {
+        dir('backend') {
+          sh '''
+            echo "📁 Backend files:"
+            ls -la
+            echo "📦 Checking Dockerfile..."
+            test -f Dockerfile && echo "Dockerfile ✅" || (echo "Dockerfile ❌ MISSING" && exit 1)
+            test -f package.json && echo "package.json ✅" || (echo "package.json ❌ MISSING" && exit 1)
+            test -f server.js && echo "server.js ✅" || (echo "server.js ❌ MISSING" && exit 1)
+          '''
+        }
+      }
+    }
+
+    stage('Deploy to EC2 via SSH') {
+      steps {
+        sshagent(credentials: ['ec2-ssh-key']) {   // Jenkins credential: SSH private key for EC2
+          sh '''
+            echo "🔗 Connecting to EC2: $EC2_USER@$EC2_HOST"
+
+            ssh -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'ENDSSH'
+              set -e
+
+              echo "📥 Pulling latest code from GitHub..."
+              cd /home/ubuntu/app
+              git pull origin main
+
+              echo "🛑 Stopping old container (if running)..."
+              docker stop taskmanager-api 2>/dev/null || true
+              docker rm taskmanager-api 2>/dev/null || true
+
+              echo "🔨 Building Docker image..."
+              cd /home/ubuntu/app/backend
+              docker build -t taskmanager-backend:latest .
+
+              echo "▶️  Starting new container..."
+              docker run -d \
+                --name taskmanager-api \
+                --env-file /home/ubuntu/.env \
+                -p 5000:5000 \
+                --restart unless-stopped \
+                taskmanager-backend:latest
+
+              echo "⏳ Waiting for app to start..."
+              sleep 6
+
+              echo "🩺 Running health check..."
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:5000/health)
+              if [ "$STATUS" = "200" ]; then
+                echo "✅ Health check passed (HTTP $STATUS)"
+              else
+                echo "❌ Health check failed (HTTP $STATUS)"
+                docker logs taskmanager-api --tail 30
+                exit 1
+              fi
+
+              echo "🧹 Cleaning up old images..."
+              docker image prune -f
+
+              echo "🎉 Backend deployment complete!"
+ENDSSH
+          '''
+        }
+      }
+    }
+
+    stage('Smoke Test API') {
+      steps {
+        sh '''
+          echo "🔍 Running remote smoke test..."
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$EC2_HOST:$APP_PORT/health)
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ API is publicly reachable (HTTP $STATUS)"
+          else
+            echo "❌ API not reachable from Jenkins (HTTP $STATUS)"
+            echo "Check EC2 Security Group — port $APP_PORT must be open"
+            exit 1
+          fi
+        '''
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "🎉 Backend deployed successfully! API running at http://${EC2_HOST}:${APP_PORT}"
+    }
+    failure {
+      echo "❌ Backend deployment failed! Check the logs above."
+    }
+  }
+}
