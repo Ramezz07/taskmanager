@@ -4,8 +4,7 @@ pipeline {
     environment {
         AWS_REGION = 'us-east-1'
         S3_BUCKET = 'task-manager7'
-        CLOUDFRONT_DISTRIBUTION_ID = 'E17PETT8G2VOVG'
-        REACT_APP_API_URL = 'https://54.198.204.21/api'
+        CLOUDFRONT_DISTRIBUTION_ID = 'E17PETT8G2VOVG'`
     }
 
     stages {
