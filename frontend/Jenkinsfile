@@ -25,7 +25,7 @@ pipeline {
         stage('npm run build'){
             steps {
                 dir('frontend') {
-                sh 'npm run build'
+                sh 'REACT_APP_API_URL=$REACT_APP_API_URL npm run build'
                 }
             }
         }
