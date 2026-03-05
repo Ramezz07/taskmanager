@@ -18,14 +18,14 @@ pipeline {
         stage('install npm dependencies') {
             steps {
                 dir('frontend') {
-                sh 'REACT_APP_API_URL=$REACT_APP_API_URL npm install'
+                sh 'npm install'
                 }
             }
         }
         stage('npm run build'){
             steps {
                 dir('frontend') {
-                sh 'REACT_APP_API_URL=$REACT_APP_API_URL npm run build'
+                sh 'npm run build'
                 }
             }
         }
