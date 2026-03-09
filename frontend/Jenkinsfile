@@ -31,7 +31,7 @@ pipeline {
         stage ('move build satic files to s3 bucket'){
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
-                sh '/usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete
+                sh "/usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete"
                 
                 }
             }
@@ -40,7 +40,7 @@ pipeline {
         stage('invalidate cloudfront cache'){
             steps{
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
-                sh '/usr/local/bin/aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths "/*"'
+                sh "/usr/local/bin/aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths '/*'"
                 }
             }
         } 
