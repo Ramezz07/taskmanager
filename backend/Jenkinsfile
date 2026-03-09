@@ -3,7 +3,11 @@ pipeline {
 
     environment {
         EC2_HOST = 'ubuntu@54.198.204.21'
+        APP_DIR = '/home/ubuntu/taskmanager/'
         APP_PORT = '5000'
+        SSH = 'ssh -o StrictHostKeyChecking=no'
+        IMAGE = 'backend'
+        CONTAINER = 'backend'
     }
 
     stages {
@@ -16,9 +20,7 @@ pipeline {
         stage('Copy Code to EC2') {
             steps {
                 sshagent(['sshkey-cred']) {
-                    sh '''
-                        rsync -avz -e "ssh -o StrictHostKeyChecking=no" --exclude='frontend' ./backend/ ${EC2_HOST}:/home/ubuntu/taskmanager/
-                    '''
+                    sh "rsync -avz -e ${SSH} --exclude='frontend' ./backend/ ${EC2_HOST}:${APP_DIR}"
                 }
             }
         }
@@ -26,12 +28,7 @@ pipeline {
         stage('Build Docker Image on EC2') {
             steps {
                 sshagent(['sshkey-cred']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${EC2_HOST} "
-                            cd /home/ubuntu/taskmanager
-                            docker build -t backend:latest .
-                        "
-                    '''
+                    sh"${SSH} ${EC2_HOST} 'cd ${APP_DIR} && docker build -t ${IMAGE} .'"
                 }
             }
         }
@@ -39,19 +36,14 @@ pipeline {
         stage('Run Docker Container on EC2') {
             steps {
                 sshagent(['sshkey-cred']) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no ${EC2_HOST} "
-                            docker stop backend || true
-                            docker rm backend || true
+                    sh """
+                        ${SSH} ${EC2_HOST} '
+                        docker stop ${CONTAINER} || true
+                        docker rm ${CONTAINER} || true
+                        docker run -d --name ${CONTAINER} -p ${APP_PORT}:${APP_PORT} --env-file ${APP_DIR}.env --restart always ${IMAGE}
+                        '
+                    """
 
-                            docker run -d \
-                                --name backend \
-                                -p ${APP_PORT}:${APP_PORT} \
-                                --env-file /home/ubuntu/taskmanager/.env \
-                                --restart always \
-                                backend:latest
-                        "
-                    '''
                 }
             }
         }
