@@ -1,6 +1,6 @@
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
-WORKDIR /app
+WORKDIR /apps
 COPY package*.json ./
 RUN npm install --only=production
 COPY . .
