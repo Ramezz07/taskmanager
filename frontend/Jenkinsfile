@@ -1,11 +1,11 @@
-pipeline {
+
+peline {
     agent any
 
     environment {
         AWS_REGION = 'us-east-1'
         S3_BUCKET = 'task-manager7'
         CLOUDFRONT_DISTRIBUTION_ID = 'E17PETT8G2VOVG'
-	API_URL='https://54.198.204.21:5000/api'
     }
 
     stages {
@@ -15,25 +15,30 @@ pipeline {
             }
         }
 
-        stage('install npm dependencies') {
+        stage('install dependencies') {
             steps {
                 dir('frontend') {
                 sh 'npm install'
                 }
             }
         }
-        stage('npm run build'){
+        stage('Build') {
             steps {
-                dir('frontend') {
-                sh "REACT_APP_API_URL=${API_URL} npm run build"
+                withCredentials([file(credentialsId: 'tm-env-prod', variable: 'ENV_PROD')]) {
+                    dir('frontend') {
+                        sh '''
+                            cp $ENV_PROD .env.production
+                            npm run build
+                        '''
+                    }
                 }
             }
         }
-        stage ('move build satic files to s3 bucket'){
+        stage ('Deploy to s3') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
                 sh "/usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete"
-                
+
                 }
             }
 
@@ -44,8 +49,8 @@ pipeline {
                 sh "/usr/local/bin/aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths '/*'"
                 }
             }
-        } 
+        }
 
     }
 
-}
+}}
