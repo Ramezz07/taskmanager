@@ -1,5 +1,4 @@
-
-peline {
+pipeline {
     agent any
 
     environment {
@@ -9,6 +8,7 @@ peline {
     }
 
     stages {
+
         stage('checkout') {
             steps {
                 git credentialsId: 'github-cred', url: 'https://github.com/Ramezz07/taskmanager.git'
@@ -18,39 +18,44 @@ peline {
         stage('install dependencies') {
             steps {
                 dir('frontend') {
-                sh 'npm install'
+                    sh 'npm install'
                 }
             }
         }
+
         stage('Build') {
             steps {
                 withCredentials([file(credentialsId: 'tm-env-prod', variable: 'ENV_PROD')]) {
                     dir('frontend') {
                         sh '''
-                            cp $ENV_PROD .env.production
-                            npm run build
+                        cp $ENV_PROD .env.production
+                        npm run build
                         '''
                     }
                 }
             }
         }
-        stage ('Deploy to s3') {
+
+        stage('Deploy to S3') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
-                sh "/usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete"
-
+                    sh """
+                    /usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete
+                    """
                 }
             }
-
         }
-        stage('invalidate cloudfront cache'){
-            steps{
+
+        stage('Invalidate CloudFront Cache') {
+            steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
-                sh "/usr/local/bin/aws cloudfront create-invalidation --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} --paths '/*'"
+                    sh """
+                    /usr/local/bin/aws cloudfront create-invalidation \
+                    --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} \
+                    --paths '/*'
+                    """
                 }
             }
         }
-
     }
-
-}}
+}
