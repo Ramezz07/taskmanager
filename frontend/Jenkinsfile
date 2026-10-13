@@ -3,15 +3,15 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'
-        S3_BUCKET = 'task-manager7'
-        CLOUDFRONT_DISTRIBUTION_ID = 'E17PETT8G2VOVG'
+        S3_BUCKET = 'mybucket-2026-00'
+        CLOUDFRONT_DISTRIBUTION_ID = 'E62OT6EWXIXUL'
     }
 
     stages {
 
         stage('checkout') {
             steps {
-                git credentialsId: 'github-cred', url: 'https://github.com/Ramezz07/taskmanager.git'
+                git credentialsId: 'github-cred', url: 'https://github.com/Sakthi5577/code-task.git'
             }
         }
 
@@ -25,20 +25,15 @@ pipeline {
 
         stage('Build') {
             steps {
-                withCredentials([file(credentialsId: 'tm-env-prod', variable: 'ENV_PROD')]) {
-                    dir('frontend') {
-                        sh '''
-                        cp $ENV_PROD .env.production
-                        npm run build
-                        '''
-                    }
+                 dir('frontend') {
+                    sh 'npm run build'
                 }
             }
         }
 
         stage('Deploy to S3') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'kiaq-aws-cred']]) {
                     sh """
                     /usr/local/bin/aws s3 sync frontend/build/ s3://${S3_BUCKET} --delete
                     """
@@ -48,7 +43,7 @@ pipeline {
 
         stage('Invalidate CloudFront Cache') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-cred']]) {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'kiaq-aws-cred']]) {
                     sh """
                     /usr/local/bin/aws cloudfront create-invalidation \
                     --distribution-id ${CLOUDFRONT_DISTRIBUTION_ID} \
